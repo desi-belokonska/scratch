@@ -1,8 +1,8 @@
 use nix::sys::socket::{
-  accept, bind, listen, socket, AddressFamily, InetAddr, IpAddr, SockAddr, SockFlag, SockProtocol,
-  SockType,
+  accept, bind, listen, recv, socket, AddressFamily, InetAddr, IpAddr, MsgFlags, SockAddr,
+  SockFlag, SockProtocol, SockType,
 };
-use nix::unistd::{close, read, write};
+use nix::unistd::{close, write};
 
 const PORT: u16 = 8000;
 
@@ -25,11 +25,17 @@ fn main() {
   loop {
     let new_socket = accept(server_fd).expect("Error in accept");
     let buffer = &mut [0; 30000];
-    read(new_socket, buffer).expect("Error in read");
-    println!(
-      "{:?}",
-      std::str::from_utf8(buffer).expect("Error in str conv")
-    );
+    match recv(new_socket, buffer, MsgFlags::empty()) {
+      Ok(bytes_read) => println!(
+        "{}",
+        std::str::from_utf8(&buffer[..bytes_read]).expect("Error in str conv")
+      ),
+      Err(_) => eprintln!("Error in read"),
+    };
+    // println!(
+    //   "{:?}",
+    //   std::str::from_utf8(buffer).expect("Error in str conv")
+    // );
     write(new_socket, hello.as_bytes()).expect("Error in write");
     println!("-> Hello message sent");
     close(new_socket).expect("Error in close");
