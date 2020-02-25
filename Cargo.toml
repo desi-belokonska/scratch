@@ -8,7 +8,7 @@ edition = "2018"
 
 [lib]
 name = "scratch"
-path = "src/lib.rs"
+path = "src/net/lib.rs"
 
 [dependencies]
 nix = "0.17.0"

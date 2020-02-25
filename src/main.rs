@@ -1,4 +1,4 @@
-use scratch::*;
+use scratch::net::*;
 use std::io;
 use std::io::{Read, Write};
 
@@ -17,8 +17,6 @@ fn main() -> io::Result<()> {
 
     stream.write(hello.as_bytes())?;
     println!("-> Hello message sent");
-
-    stream.close()?;
   }
   Ok(())
 }
