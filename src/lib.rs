@@ -9,6 +9,18 @@ use std::net::{SocketAddr, ToSocketAddrs};
 pub struct Socket(i32);
 
 impl Socket {
+  fn new() -> io::Result<Socket> {
+    match socket(
+      AddressFamily::Inet,
+      SockType::Stream,
+      SockFlag::empty(),
+      SockProtocol::Tcp,
+    ) {
+      Ok(raw_fd) => Ok(Socket(raw_fd)),
+      Err(err) => Err(into_io_error(err)),
+    }
+  }
+
   fn get_peer_name(&self) -> io::Result<SocketAddr> {
     let addr = match getpeername(self.0) {
       Ok(sock_addr) => sock_addr,
@@ -17,6 +29,28 @@ impl Socket {
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
       _ => Err(io::Error::from(io::ErrorKind::Other)),
+    }
+  }
+
+  fn accept(&self) -> io::Result<Socket> {
+    match accept(self.0) {
+      Ok(raw_fd) => Ok(Socket(raw_fd)),
+      Err(err) => Err(into_io_error(err)),
+    }
+  }
+
+  fn bind(&self, addr: SocketAddr) -> io::Result<()> {
+    let address = SockAddr::new_inet(InetAddr::new(IpAddr::from_std(&addr.ip()), addr.port()));
+    match bind(self.0, &address) {
+      Err(err) => Err(into_io_error(err)),
+      _ => Ok(()),
+    }
+  }
+
+  fn listen(&self, backlog: usize) -> io::Result<()> {
+    match listen(self.0, backlog) {
+      Err(err) => Err(into_io_error(err)),
+      _ => Ok(()),
     }
   }
 
@@ -99,50 +133,32 @@ pub struct TcpListener {
   inner: Socket,
 }
 
-fn into_io_error(err: nix::Error) -> io::Error {
-  io::Error::from(err.as_errno().unwrap())
-}
-
 impl TcpListener {
   pub fn bind(ip: impl ToSocketAddrs) -> io::Result<TcpListener> {
     let ip_addresses = ip.to_socket_addrs()?;
 
     for addr in ip_addresses {
       if addr.is_ipv4() {
-        let server_fd = match socket(
-          AddressFamily::Inet,
-          SockType::Stream,
-          SockFlag::empty(),
-          SockProtocol::Tcp,
-        ) {
-          Ok(raw_fd) => raw_fd,
-          Err(err) => return Err(into_io_error(err)),
-        };
-
-        let address = SockAddr::new_inet(InetAddr::new(IpAddr::from_std(&addr.ip()), addr.port()));
-
-        bind(server_fd, &address).expect("Error in bind");
-        listen(server_fd, 128).expect("Error in listen");
-        return Ok(TcpListener {
-          inner: Socket(server_fd),
-        });
+        let sock = Socket::new()?;
+        sock.bind(addr)?;
+        sock.listen(128)?;
+        return Ok(TcpListener { inner: sock });
       }
     }
     Err(io::Error::from(io::ErrorKind::Other))
   }
 
   pub fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
-    let new_socket = match accept(self.inner.0) {
-      Ok(raw_fd) => Socket(raw_fd),
-      Err(err) => return Err(into_io_error(err)),
-    };
-
+    let new_socket = self.inner.accept()?;
     let socket_addr = new_socket.get_peer_name()?;
-
     return Ok((TcpStream { inner: new_socket }, socket_addr));
   }
 
   pub fn incoming(&self) -> Incoming {
     Incoming { listener: self }
   }
+}
+
+fn into_io_error(err: nix::Error) -> io::Error {
+  io::Error::from(err.as_errno().unwrap())
 }
