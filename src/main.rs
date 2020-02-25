@@ -1,43 +1,26 @@
-use nix::sys::socket::{
-  accept, bind, listen, recv, socket, AddressFamily, InetAddr, IpAddr, MsgFlags, SockAddr,
-  SockFlag, SockProtocol, SockType,
-};
-use nix::unistd::{close, write};
+use scratch::*;
+use std::io;
+use std::io::{Read, Write};
 
-const PORT: u16 = 8000;
-
-fn main() {
+fn main() -> io::Result<()> {
   let hello = "Hello from server";
-  let server_fd = socket(
-    AddressFamily::Inet,
-    SockType::Stream,
-    SockFlag::empty(),
-    SockProtocol::Tcp,
-  )
-  .expect("Error in socket");
 
-  let address = SockAddr::new_inet(InetAddr::new(IpAddr::new_v4(127, 0, 0, 1), PORT));
-
-  bind(server_fd, &address).expect("Error in bind");
-
-  listen(server_fd, 10).expect("Error in listen");
+  let listener = TcpListener::bind("127.0.0.1:8000")?;
 
   loop {
-    let new_socket = accept(server_fd).expect("Error in accept");
+    let (mut stream, _) = listener.accept()?;
     let buffer = &mut [0; 30000];
-    match recv(new_socket, buffer, MsgFlags::empty()) {
-      Ok(bytes_read) => println!(
-        "{}",
-        std::str::from_utf8(&buffer[..bytes_read]).expect("Error in str conv")
-      ),
-      Err(_) => eprintln!("Error in read"),
-    };
-    // println!(
-    //   "{:?}",
-    //   std::str::from_utf8(buffer).expect("Error in str conv")
-    // );
-    write(new_socket, hello.as_bytes()).expect("Error in write");
+
+    let bytes_read = (&stream).read(buffer)?;
+
+    println!("{}", buffer_to_str(buffer, bytes_read));
+
+    stream.write(hello.as_bytes())?;
     println!("-> Hello message sent");
-    close(new_socket).expect("Error in close");
+    stream.close()?;
   }
+}
+
+fn buffer_to_str(buf: &mut [u8], up_to: usize) -> &str {
+  std::str::from_utf8(&buf[..up_to]).expect("Error in str conv")
 }
