@@ -21,20 +21,6 @@ pub mod net {
     fn write(&self, buf: &[u8]) -> Result<usize>;
   }
 
-  impl Socket {
-    fn new() -> Result<Socket> {
-      match socket(
-        AddressFamily::Inet,
-        SockType::Stream,
-        SockFlag::empty(),
-        SockProtocol::Tcp,
-      ) {
-        Ok(raw_fd) => Ok(Socket(raw_fd)),
-        Err(err) => Err(into_io_error(err)),
-      }
-    }
-  }
-
   impl SocketLike for Socket {
     fn new() -> Result<Box<Socket>> {
       match socket(
@@ -157,7 +143,7 @@ pub mod net {
           let sock = Socket::new()?;
           sock.bind(addr)?;
           sock.listen(128)?;
-          return Ok(TcpListener { inner: sock });
+          return Ok(TcpListener { inner: *sock });
         }
       }
       Err(Error::from(ErrorKind::Other))
