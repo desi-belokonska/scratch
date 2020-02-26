@@ -1,11 +1,10 @@
 use scratch::net::*;
-use std::io;
-use std::io::{Read, Write};
+use std::io::{Read, Result, Write};
 
-fn main() -> io::Result<()> {
+fn main() -> Result<()> {
   let hello = "Hello from server";
 
-  let listener = TcpListener::bind("127.0.0.1:8000")?;
+  let listener = TcpListener::bind("127.0.0.1:8001")?;
 
   for stream in listener.incoming() {
     let mut stream = stream?;

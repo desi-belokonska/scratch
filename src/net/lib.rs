@@ -10,6 +10,17 @@ pub mod net {
 
   pub struct Socket(i32);
 
+  pub trait SocketLike {
+    fn new() -> Result<Box<Socket>>;
+    fn get_peer_name(&self) -> Result<SocketAddr>;
+    fn accept(&self) -> Result<Box<Self>>;
+    fn bind(&self, addr: SocketAddr) -> Result<()>;
+    fn listen(&self, backlog: usize) -> Result<()>;
+    fn close(&self) -> Result<()>;
+    fn read(&self, buf: &mut [u8]) -> Result<usize>;
+    fn write(&self, buf: &[u8]) -> Result<usize>;
+  }
+
   impl Socket {
     fn new() -> Result<Socket> {
       match socket(
@@ -22,7 +33,20 @@ pub mod net {
         Err(err) => Err(into_io_error(err)),
       }
     }
+  }
 
+  impl SocketLike for Socket {
+    fn new() -> Result<Box<Socket>> {
+      match socket(
+        AddressFamily::Inet,
+        SockType::Stream,
+        SockFlag::empty(),
+        SockProtocol::Tcp,
+      ) {
+        Ok(raw_fd) => Ok(Box::new(Socket(raw_fd))),
+        Err(err) => Err(into_io_error(err)),
+      }
+    }
     fn get_peer_name(&self) -> Result<SocketAddr> {
       let addr = getpeername(self.0).map_err(into_io_error)?;
       match addr {
@@ -31,9 +55,9 @@ pub mod net {
       }
     }
 
-    fn accept(&self) -> Result<Socket> {
+    fn accept(&self) -> Result<Box<Socket>> {
       match accept(self.0) {
-        Ok(raw_fd) => Ok(Socket(raw_fd)),
+        Ok(raw_fd) => Ok(Box::new(Socket(raw_fd))),
         Err(err) => Err(into_io_error(err)),
       }
     }
@@ -66,6 +90,7 @@ pub mod net {
 
   impl<'a> Iterator for Incoming<'a> {
     type Item = Result<TcpStream>;
+
     fn next(&mut self) -> Option<Result<TcpStream>> {
       Some(self.listener.accept().map(|p| p.0))
     }
@@ -141,7 +166,7 @@ pub mod net {
     pub fn accept(&self) -> Result<(TcpStream, SocketAddr)> {
       let new_socket = self.inner.accept()?;
       let socket_addr = new_socket.get_peer_name()?;
-      return Ok((TcpStream { inner: new_socket }, socket_addr));
+      return Ok((TcpStream { inner: *new_socket }, socket_addr));
     }
 
     pub fn incoming(&self) -> Incoming {
