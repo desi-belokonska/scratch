@@ -1,5 +1,5 @@
-pub mod net {
-  use crate::util::into_io_error;
+pub mod tcp {
+  use super::util::into_io_error;
   use nix::sys::socket::{
     accept, bind, getpeername, listen, socket, AddressFamily, InetAddr, IpAddr, SockAddr, SockFlag,
     SockProtocol, SockType,
@@ -11,7 +11,7 @@ pub mod net {
   pub struct Socket(i32);
 
   pub trait SocketLike {
-    fn new() -> Result<Box<Socket>>;
+    fn new() -> Result<Box<Self>>;
     fn get_peer_name(&self) -> Result<SocketAddr>;
     fn accept(&self) -> Result<Box<Self>>;
     fn bind(&self, addr: SocketAddr) -> Result<()>;
@@ -70,47 +70,47 @@ pub mod net {
     }
   }
 
-  pub struct Incoming<'a> {
-    listener: &'a TcpListener,
+  impl Drop for Socket {
+    fn drop(&mut self) {
+      self.close().unwrap()
+    }
   }
 
-  impl<'a> Iterator for Incoming<'a> {
-    type Item = Result<TcpStream>;
+  pub struct Incoming<'a, T: SocketLike> {
+    listener: &'a TcpListener<T>,
+  }
 
-    fn next(&mut self) -> Option<Result<TcpStream>> {
+  impl<'a> Iterator for Incoming<'a, Socket> {
+    type Item = Result<TcpStream<Socket>>;
+
+    fn next(&mut self) -> Option<Result<TcpStream<Socket>>> {
       Some(self.listener.accept().map(|p| p.0))
     }
   }
 
-  pub struct TcpStream {
-    inner: Socket,
+  pub struct TcpStream<T: SocketLike> {
+    inner: T,
   }
 
-  impl TcpStream {
+  impl TcpStream<Socket> {
     pub fn close(&self) -> Result<()> {
       self.inner.close()
     }
   }
 
-  impl Drop for TcpStream {
-    fn drop(&mut self) {
-      self.inner.close().unwrap()
-    }
-  }
-
-  impl Read for TcpStream {
+  impl Read for TcpStream<Socket> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
       self.inner.read(buf)
     }
   }
 
-  impl Read for &TcpStream {
+  impl Read for &TcpStream<Socket> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
       self.inner.read(buf)
     }
   }
 
-  impl Write for TcpStream {
+  impl Write for TcpStream<Socket> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
       self.inner.write(buf)
     }
@@ -120,7 +120,7 @@ pub mod net {
     }
   }
 
-  impl Write for &TcpStream {
+  impl Write for &TcpStream<Socket> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
       self.inner.write(buf)
     }
@@ -130,12 +130,12 @@ pub mod net {
     }
   }
 
-  pub struct TcpListener {
-    inner: Socket,
+  pub struct TcpListener<T: SocketLike> {
+    inner: T,
   }
 
-  impl TcpListener {
-    pub fn bind(ip: impl ToSocketAddrs) -> Result<TcpListener> {
+  impl TcpListener<Socket> {
+    pub fn bind(ip: impl ToSocketAddrs) -> Result<TcpListener<Socket>> {
       let ip_addresses = ip.to_socket_addrs()?;
 
       for addr in ip_addresses {
@@ -149,13 +149,13 @@ pub mod net {
       Err(Error::from(ErrorKind::Other))
     }
 
-    pub fn accept(&self) -> Result<(TcpStream, SocketAddr)> {
+    pub fn accept(&self) -> Result<(TcpStream<Socket>, SocketAddr)> {
       let new_socket = *self.inner.accept()?;
       let socket_addr = new_socket.get_peer_name()?;
       return Ok((TcpStream { inner: new_socket }, socket_addr));
     }
 
-    pub fn incoming(&self) -> Incoming {
+    pub fn incoming(&self) -> Incoming<Socket> {
       Incoming { listener: self }
     }
   }

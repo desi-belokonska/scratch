@@ -1,4 +1,4 @@
-use scratch::net::*;
+use scratch::tcp::*;
 use std::io::{Read, Result, Write};
 
 fn main() -> Result<()> {
