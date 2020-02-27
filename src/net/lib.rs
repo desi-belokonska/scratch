@@ -140,19 +140,19 @@ pub mod net {
 
       for addr in ip_addresses {
         if addr.is_ipv4() {
-          let sock = Socket::new()?;
+          let sock = *Socket::new()?;
           sock.bind(addr)?;
           sock.listen(128)?;
-          return Ok(TcpListener { inner: *sock });
+          return Ok(TcpListener { inner: sock });
         }
       }
       Err(Error::from(ErrorKind::Other))
     }
 
     pub fn accept(&self) -> Result<(TcpStream, SocketAddr)> {
-      let new_socket = self.inner.accept()?;
+      let new_socket = *self.inner.accept()?;
       let socket_addr = new_socket.get_peer_name()?;
-      return Ok((TcpStream { inner: *new_socket }, socket_addr));
+      return Ok((TcpStream { inner: new_socket }, socket_addr));
     }
 
     pub fn incoming(&self) -> Incoming {
