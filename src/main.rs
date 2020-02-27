@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let bytes_read = stream.read(buffer)?;
     println!("{}", buffer_to_str(buffer, bytes_read));
 
-    stream.write(hello.as_bytes())?;
+    stream.write_all(hello.as_bytes())?;
     println!("-> Hello message sent");
   }
   Ok(())

@@ -151,9 +151,10 @@ impl TcpListener<Socket> {
   pub fn accept(&self) -> Result<(TcpStream<Socket>, SocketAddr)> {
     let new_socket = *self.inner.accept()?;
     let socket_addr = new_socket.get_peer_name()?;
-    return Ok((TcpStream { inner: new_socket }, socket_addr));
+    Ok((TcpStream { inner: new_socket }, socket_addr))
   }
 
   pub fn incoming(&self) -> Incoming<Socket> {
     Incoming { listener: self }
-  }}
+  }
+}
