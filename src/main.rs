@@ -1,10 +1,10 @@
-use scratch::tcp::*;
+use scratch::net::tcp::*;
 use std::io::{Read, Result, Write};
 
 fn main() -> Result<()> {
   let hello = "Hello from server";
 
-  let listener = TcpListener::bind("127.0.0.1:8001")?;
+  let listener = TcpListener::<Socket>::bind("127.0.0.1:8000")?;
 
   for stream in listener.incoming() {
     let mut stream = stream?;
@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     println!("{}", buffer_to_str(buffer, bytes_read));
 
     stream.write_all(hello.as_bytes())?;
-    println!("-> Hello message sent");
+    println!("📮 : Hello message sent");
   }
   Ok(())
 }

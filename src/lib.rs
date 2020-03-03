@@ -1,3 +1,1 @@
-mod net;
-
-pub use net::tcp;
+pub mod net;
