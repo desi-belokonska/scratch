@@ -15,7 +15,7 @@ pub trait SocketLike {
   fn listen(&self, backlog: usize) -> IoResult<()>;
   fn close(&self) -> IoResult<()>;
   fn read(&self, buf: &mut [u8]) -> IoResult<usize>;
-  fn write(&mut self, buf: &[u8]) -> IoResult<usize>;
+  fn write(&self, buf: &[u8]) -> IoResult<usize>;
 }
 
 // ----- Begin: Socket ------
@@ -67,7 +67,7 @@ impl SocketLike for Socket {
     read(self.0, buf).map_err(into_io_error)
   }
 
-  fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+  fn write(&self, buf: &[u8]) -> IoResult<usize> {
     write(self.0, buf).map_err(into_io_error)
   }
 }
@@ -99,6 +99,16 @@ impl<T: SocketLike> Read for &TcpStream<T> {
 }
 
 impl<T: SocketLike> Write for TcpStream<T> {
+  fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+    self.inner.write(buf)
+  }
+
+  fn flush(&mut self) -> IoResult<()> {
+    Ok(())
+  }
+}
+
+impl<T: SocketLike> Write for &TcpStream<T> {
   fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
     self.inner.write(buf)
   }
@@ -161,9 +171,10 @@ mod tests {
   // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
 
+  static mut DATA: Vec<u8> = Vec::new();
+
   struct GoodSocket {
     address: SocketAddr,
-    data: Vec<u8>,
   }
 
   const NEW_SOCK_ADDR: &str = "127.0.0.1:3000";
@@ -173,17 +184,13 @@ mod tests {
     fn new() -> IoResult<Box<GoodSocket>> {
       // Okay because we know it's a valid socket address
       let address = NEW_SOCK_ADDR.to_socket_addrs().unwrap().next().unwrap();
-      Ok(Box::new(GoodSocket {
-        address,
-        data: Vec::new(),
-      }))
+      Ok(Box::new(GoodSocket { address }))
     }
 
     fn accept(&self) -> IoResult<Box<GoodSocket>> {
       let new_address = NEW_ACCPT_ADDR.to_socket_addrs().unwrap().next().unwrap();
       Ok(Box::new(GoodSocket {
         address: new_address,
-        data: Vec::new(),
       }))
     }
 
@@ -213,10 +220,10 @@ mod tests {
       Ok(count)
     }
 
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+    fn write(&self, buf: &[u8]) -> IoResult<usize> {
       let mut count = 0;
       for val in buf {
-        self.data.push(*val);
+        unsafe { DATA.push(*val) };
         count += 1;
       }
       Ok(count)
