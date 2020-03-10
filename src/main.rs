@@ -1,4 +1,5 @@
 use scratch::net::tcp::*;
+use scratch::net::util;
 use std::io::{Read, Result, Write};
 
 fn main() -> Result<()> {
@@ -12,14 +13,10 @@ fn main() -> Result<()> {
     let buffer = &mut [0; 30000];
 
     let bytes_read = stream.read(buffer)?;
-    println!("{}", buffer_to_str(buffer, bytes_read));
+    println!("{}", util::buffer_to_str(buffer, bytes_read));
 
     stream.write_all(hello.as_bytes())?;
     println!("📮 : Hello message sent");
   }
   Ok(())
-}
-
-fn buffer_to_str(buf: &mut [u8], up_to: usize) -> &str {
-  std::str::from_utf8(&buf[..up_to]).expect("Error in str conv")
 }
