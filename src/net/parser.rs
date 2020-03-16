@@ -1,13 +1,11 @@
 // use super::util::buffer_to_str;
 use std::collections::HashMap;
+use std::fmt;
 use std::io::{Error, ErrorKind, Result as IoResult};
 use std::str::FromStr;
-use std::{error::Error as ErrorTrait, fmt};
 
 #[derive(Debug)]
 pub struct ParseError();
-
-impl ErrorTrait for ParseError {}
 
 impl fmt::Display for ParseError {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -31,32 +29,77 @@ pub struct Request {
 }
 
 impl Request {
-  pub fn new() -> Self {
-    Default::default()
+  pub fn parse(raw: &str) -> Result<Self, ParseError> {
+    let (rest, method) = Method::parse(raw)?;
+    let (rest, url) = Url::parse(rest)?;
+    let (rest, version) = Version::parse(rest)?;
+    let (body, headers) = Headers::parse(rest)?;
+    let req: Request = Request::builder()
+      .method(method)
+      .url(url)
+      .version(version)
+      .headers(headers)
+      .body(body.to_string())
+      .into();
+    Ok(req)
   }
 
+  pub fn builder() -> RequestBuilder {
+    RequestBuilder(Default::default())
+  }
+
+  pub fn method(&self) -> &Method {
+    &self.method
+  }
+
+  pub fn headers(&self) -> &Headers {
+    &self.headers
+  }
+
+  pub fn url(&self) -> &Url {
+    &self.url
+  }
+
+  pub fn version(&self) -> &Version {
+    &self.version
+  }
+
+  pub fn body(&self) -> &str {
+    &self.body
+  }
+}
+
+impl From<RequestBuilder> for Request {
+  fn from(builder: RequestBuilder) -> Self {
+    builder.0
+  }
+}
+
+pub struct RequestBuilder(Request);
+
+impl RequestBuilder {
   pub fn method(mut self, meth: Method) -> Self {
-    self.method = meth;
+    self.0.method = meth;
     self
   }
 
   pub fn headers(mut self, headers: Headers) -> Self {
-    self.headers = headers;
+    self.0.headers = headers;
     self
   }
 
   pub fn url(mut self, url: Url) -> Self {
-    self.url = url;
+    self.0.url = url;
     self
   }
 
   pub fn version(mut self, version: Version) -> Self {
-    self.version = version;
+    self.0.version = version;
     self
   }
 
   pub fn body(mut self, body: String) -> Self {
-    self.body = body;
+    self.0.body = body;
     self
   }
 }
@@ -102,6 +145,12 @@ pub struct Url {
   path: String,
 }
 
+impl Url {
+  pub fn path(&self) -> &str {
+    &self.path
+  }
+}
+
 impl Parse for Url {
   fn parse(txt: &str) -> Result<(&str, Self), ParseError> {
     let mut itr = txt.splitn(2, " ");
@@ -137,8 +186,6 @@ impl Parse for Version {
       .next()
       .ok_or(ParseError())?
       .split(".");
-
-    println!("version cool");
 
     let major = version_iter
       .next()
@@ -212,23 +259,6 @@ impl Parse for Method {
   }
 }
 
-pub fn parse_request(txt: &str) -> Result<(), ParseError> {
-  let (rest, method) = Method::parse(txt)?;
-  let (rest, url) = Url::parse(rest)?;
-  let (rest, version) = Version::parse(rest)?;
-  let (body, headers) = Headers::parse(rest)?;
-
-  let req = Request::new()
-    .method(method)
-    .url(url)
-    .version(version)
-    .headers(headers)
-    .body(body.to_string());
-
-  println!("{:?}", req);
-  Ok(())
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -245,12 +275,12 @@ mod tests {
 
   #[test]
   fn good_parse() {
-    assert!(parse_request(SAMPLE_REQUEST).is_ok());
+    assert!(Request::parse(SAMPLE_REQUEST).is_ok());
   }
 
   #[test]
   fn bad_parse() {
-    assert!(parse_request(BAD_REQUEST).is_err());
+    assert!(Request::parse(BAD_REQUEST).is_err());
   }
 
   #[test]
