@@ -1,4 +1,4 @@
-use scratch::net::parser::Request;
+use scratch::net::request::Request;
 use scratch::net::tcp::*;
 use scratch::net::util;
 use std::fs;
