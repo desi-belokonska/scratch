@@ -1,4 +1,3 @@
-// use super::util::buffer_to_str;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{Error, ErrorKind, Result as IoResult};
