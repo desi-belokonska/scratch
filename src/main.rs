@@ -1,4 +1,4 @@
-use scratch::net::http::Request;
+use scratch::net::http::{Request, Response};
 use scratch::net::tcp::*;
 use scratch::net::util;
 use std::fs;
@@ -27,7 +27,13 @@ fn main() -> Result<()> {
     let file_path = format!("{}{}", PUBLIC, parsed.url().path());
 
     match fs::read(&file_path) {
-      Ok(content) => writer.write_all(&content)?,
+      Ok(content) => {
+        let res: Response = Response::builder()
+          .body(&content)
+          .header(("Content-Type".to_string(), "text/html".to_string()))
+          .into();
+        writer.write_all(res.to_string().as_bytes())?
+      }
       Err(err) => {
         println!("🗂  path:{}; {:?}", file_path, err);
         writer.write_all(hello.as_bytes())?

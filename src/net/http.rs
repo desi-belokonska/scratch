@@ -1,3 +1,4 @@
+use super::util::buffer_to_str;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{Error, ErrorKind, Result as IoResult};
@@ -208,6 +209,12 @@ impl Default for Version {
   }
 }
 
+impl<'a> fmt::Display for Version {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "HTTP/{}.{}", self.major, self.minor)
+  }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Method {
   OPTIONS,
@@ -265,16 +272,16 @@ impl Parse for Method {
 }
 
 #[derive(Default, Debug)]
-pub struct Response {
+pub struct Response<'a> {
   status: Status, //code and text
   version: Version,
   url: Url,         // can use same
   headers: Headers, //can use same
-  body: String,
+  body: &'a [u8],
 }
 
-impl Response {
-  pub fn builder() -> ResponseBuilder {
+impl<'a> Response<'a> {
+  pub fn builder() -> ResponseBuilder<'a> {
     ResponseBuilder(Default::default())
   }
 
@@ -294,20 +301,38 @@ impl Response {
     &self.headers
   }
 
-  pub fn body(&self) -> &str {
+  pub fn body(&self) -> &[u8] {
     &self.body
   }
 }
 
-impl From<ResponseBuilder> for Response {
-  fn from(builder: ResponseBuilder) -> Self {
+impl<'a> From<ResponseBuilder<'a>> for Response<'a> {
+  fn from(builder: ResponseBuilder<'a>) -> Self {
     builder.0
   }
 }
 
-pub struct ResponseBuilder(Response);
+impl<'a> fmt::Display for Response<'a> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let mut result = format!("{} {}\n", self.version(), self.status());
+    for (header, field) in self.headers().0.iter() {
+      result = format!("{}{}: {}\n", result, header, field);
+    }
+    result = format!("{}\n", result);
+    if self.body().len() > 0 {
+      result = format!(
+        "{}{}",
+        result,
+        buffer_to_str(self.body(), self.body().len())
+      );
+    }
+    write!(f, "{}", result)
+  }
+}
 
-impl ResponseBuilder {
+pub struct ResponseBuilder<'a>(Response<'a>);
+
+impl<'a> ResponseBuilder<'a> {
   pub fn status(mut self, status: Status) -> Self {
     self.0.status = status;
     self
@@ -323,12 +348,17 @@ impl ResponseBuilder {
     self
   }
 
+  pub fn header(mut self, (key, value): (String, String)) -> Self {
+    self.0.headers.0.insert(key, value);
+    self
+  }
+
   pub fn headers(mut self, headers: Headers) -> Self {
     self.0.headers = headers;
     self
   }
 
-  pub fn body(mut self, body: String) -> Self {
+  pub fn body(mut self, body: &'a [u8]) -> Self {
     self.0.body = body;
     self
   }
@@ -411,9 +441,155 @@ impl Default for Status {
   }
 }
 
+impl<'a> fmt::Display for Status {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{} {}", self.code(), self.text())
+  }
+}
+
 impl Status {
-  pub fn code(&self) -> u8 {
-    self as *const Status as u8
+  pub fn code(&self) -> u16 {
+    match self {
+      Status::Continue => 100,
+      Status::SwitchingProtocols => 101,
+      Status::Processing => 102,
+      Status::EarlyHints => 103,
+
+      Status::OK => 200,
+      Status::Created => 201,
+      Status::Accepted => 202,
+      Status::NonAuthoritativeInfo => 203,
+      Status::NoContent => 204,
+      Status::ResetContent => 205,
+      Status::PartialContent => 206,
+      Status::MultiStatus => 207,
+      Status::AlreadyReported => 208,
+      Status::IMUsed => 226,
+
+      Status::MultipleChoices => 300,
+      Status::MovedPermanently => 301,
+      Status::Found => 302,
+      Status::SeeOther => 303,
+      Status::NotModified => 304,
+      Status::UseProxy => 305,
+
+      Status::TemporaryRedirect => 307,
+      Status::PermanentRedirect => 308,
+
+      Status::BadRequest => 400,
+      Status::Unauthorized => 401,
+      Status::PaymentRequired => 402,
+      Status::Forbidden => 403,
+      Status::NotFound => 404,
+      Status::MethodNotAllowed => 405,
+      Status::NotAcceptable => 406,
+      Status::ProxyAuthRequired => 407,
+      Status::RequestTimeout => 408,
+      Status::Conflict => 409,
+      Status::Gone => 410,
+      Status::LengthRequired => 411,
+      Status::PreconditionFailed => 412,
+      Status::RequestEntityTooLarge => 413,
+      Status::RequestURITooLong => 414,
+      Status::UnsupportedMediaType => 415,
+      Status::RequestedRangeNotSatisfiable => 416,
+      Status::ExpectationFailed => 417,
+      Status::Teapot => 418,
+      Status::MisdirectedRequest => 421,
+      Status::UnprocessableEntity => 422,
+      Status::Locked => 423,
+      Status::FailedDependency => 424,
+      Status::TooEarly => 425,
+      Status::UpgradeRequired => 426,
+      Status::PreconditionRequired => 428,
+      Status::TooManyRequests => 429,
+      Status::RequestHeaderFieldsTooLarge => 431,
+      Status::UnavailableForLegalReasons => 451,
+
+      Status::InternalServerError => 500,
+      Status::NotImplemented => 501,
+      Status::BadGateway => 502,
+      Status::ServiceUnavailable => 503,
+      Status::GatewayTimeout => 504,
+      Status::HTTPVersionNotSupported => 505,
+      Status::VariantAlsoNegotiates => 506,
+      Status::InsufficientStorage => 507,
+      Status::LoopDetected => 508,
+      Status::NotExtended => 510,
+      Status::NetworkAuthenticationRequired => 511,
+    }
+  }
+
+  pub fn text(&self) -> &'static str {
+    match self {
+      Status::Continue => "Continue",
+      Status::SwitchingProtocols => "Switching Protocols",
+      Status::Processing => "Processing",
+      Status::EarlyHints => "Early Hints",
+
+      Status::OK => "OK",
+      Status::Created => "Created",
+      Status::Accepted => "Accepted",
+      Status::NonAuthoritativeInfo => "Non-Authoritative Information",
+      Status::NoContent => "No Content",
+      Status::ResetContent => "Reset Content",
+      Status::PartialContent => "Partial Content",
+      Status::MultiStatus => "Multi-Status",
+      Status::AlreadyReported => "Already Reported",
+      Status::IMUsed => "IM Used",
+
+      Status::MultipleChoices => "Multiple Choices",
+      Status::MovedPermanently => "Moved Permanently",
+      Status::Found => "Found",
+      Status::SeeOther => "See Other",
+      Status::NotModified => "Not Modified",
+      Status::UseProxy => "Use Proxy",
+
+      Status::TemporaryRedirect => "Temporary Redirect",
+      Status::PermanentRedirect => "Permanent Redirect",
+
+      Status::BadRequest => "Bad Request",
+      Status::Unauthorized => "Unauthorized",
+      Status::PaymentRequired => "Payment Required",
+      Status::Forbidden => "Forbidden",
+      Status::NotFound => "Not Found",
+      Status::MethodNotAllowed => "Method Not Allowed",
+      Status::NotAcceptable => "Not Acceptable",
+      Status::ProxyAuthRequired => "Proxy Authentication Required",
+      Status::RequestTimeout => "Request Timeout",
+      Status::Conflict => "Conflict",
+      Status::Gone => "Gone",
+      Status::LengthRequired => "Length Required",
+      Status::PreconditionFailed => "Precondition Failed",
+      Status::RequestEntityTooLarge => "Payload Too Large",
+      Status::RequestURITooLong => "URI Too Long",
+      Status::UnsupportedMediaType => "Unsupported Media Type",
+      Status::RequestedRangeNotSatisfiable => "Range Not Satisfiable",
+      Status::ExpectationFailed => "Expectation Failed",
+      Status::Teapot => "I'm a teapot",
+      Status::MisdirectedRequest => "Misdirected Request",
+      Status::UnprocessableEntity => "Unprocessable Entity",
+      Status::Locked => "Locked",
+      Status::FailedDependency => "Failed Dependency",
+      Status::TooEarly => "Too Early",
+      Status::UpgradeRequired => "Upgrade Required",
+      Status::PreconditionRequired => "Precondition Required",
+      Status::TooManyRequests => "Too Many Requests",
+      Status::RequestHeaderFieldsTooLarge => "Request Header Fields Too Large",
+      Status::UnavailableForLegalReasons => "Unavailable For Legal Reasons",
+
+      Status::InternalServerError => "Internal Server Error",
+      Status::NotImplemented => "Not Implemented",
+      Status::BadGateway => "Bad Gateway",
+      Status::ServiceUnavailable => "Service Unavailable",
+      Status::GatewayTimeout => "Gateway Timeout",
+      Status::HTTPVersionNotSupported => "HTTP Version Not Supported",
+      Status::VariantAlsoNegotiates => "Variant Also Negotiates",
+      Status::InsufficientStorage => "Insufficient Storage",
+      Status::LoopDetected => "Loop Detected",
+      Status::NotExtended => "Not Extended",
+      Status::NetworkAuthenticationRequired => "Network Authentication Required",
+    }
   }
 }
 
@@ -467,5 +643,11 @@ mod tests {
     let parsed = Headers::parse(SAMPLE_REQUEST_HEADERS);
     // println!("parse_headers: {:?}", parsed);
     assert!(parsed.is_ok() && parsed.unwrap().0 == "");
+  }
+
+  #[test]
+  fn status_code() {
+    let stat = Status::OK;
+    assert_eq!(stat.code(), 200)
   }
 }
