@@ -12,3 +12,4 @@ path = "src/lib.rs"
 
 [dependencies]
 nix = "0.17.0"
+mime_guess = "2.0.3"

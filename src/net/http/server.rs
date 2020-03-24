@@ -22,6 +22,8 @@ impl Server {
   where
     F: Fn(Request) -> IoResult<Response>,
   {
+    println!("Server listening");
+
     for stream in self.inner.incoming() {
       let stream = stream?;
 
@@ -30,13 +32,14 @@ impl Server {
 
       let buffer = &mut [0; 30000];
       let bytes_read = reader.read(buffer)?;
-      let raw_request = util::buffer_to_str(buffer, bytes_read);
+      let raw_request = util::buffer_to_str(buffer, bytes_read).expect("Invalid request");
 
       let request =
         Request::parse(raw_request).map_err(|_| Error::from(ErrorKind::InvalidInput))?;
 
       let response = handle_fn(request)?;
-      writer.write_all(response.to_string().as_bytes())?;
+      println!("👩‍🏭");
+      writer.write_all(&response.as_bytes())?;
     }
     Ok(())
   }

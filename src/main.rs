@@ -1,3 +1,4 @@
+use mime_guess::from_path;
 use scratch::net::http::{Request, Response, Server, Status};
 use std::fs;
 use std::io::Result;
@@ -12,12 +13,16 @@ fn handle_request<'a>(request: Request) -> Result<Response> {
   let file_path = format!("{}{}", PUBLIC, request.url().path());
 
   match fs::read(&file_path) {
-    Ok(content) => Ok(
-      Response::builder()
-        .body(content)
-        .header(("Content-Type".to_string(), "text/html".to_string()))
-        .into(),
-    ),
+    Ok(content) => {
+      let mime_type_guess = from_path(&file_path).first_raw().unwrap_or("text/plain");
+      println!("mime_type_guess: {}", mime_type_guess);
+      Ok(
+        Response::builder()
+          .body(content)
+          .header(("Content-Type".to_string(), mime_type_guess.to_string()))
+          .into(),
+      )
+    }
     Err(_) => Ok(Response::builder().status(Status::NotFound).into()),
   }
 }

@@ -35,6 +35,13 @@ impl Response {
   pub fn body(&self) -> &[u8] {
     &self.body
   }
+
+  pub fn as_bytes(&self) -> Vec<u8> {
+    let mut bytes = Vec::from(self.to_string().as_bytes());
+    let mut body_bytes = Vec::from(self.body());
+    bytes.append(&mut body_bytes);
+    bytes
+  }
 }
 
 impl From<ResponseBuilder> for Response {
@@ -51,11 +58,12 @@ impl fmt::Display for Response {
     }
     result = format!("{}\n", result);
     if self.body().len() > 0 {
-      result = format!(
-        "{}{}",
-        result,
-        buffer_to_str(self.body(), self.body().len())
-      );
+      match buffer_to_str(self.body(), self.body().len()) {
+        Some(body) => {
+          result = format!("{}{}", result, body);
+        }
+        None => (),
+      }
     }
     write!(f, "{}", result)
   }
