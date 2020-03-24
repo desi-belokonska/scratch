@@ -1,5 +1,4 @@
 use super::common::*;
-use crate::net::util::buffer_to_str;
 use std::fmt;
 
 #[derive(Default, Debug)]
@@ -57,14 +56,6 @@ impl fmt::Display for Response {
       result = format!("{}{}: {}\n", result, header, field);
     }
     result = format!("{}\n", result);
-    if self.body().len() > 0 {
-      match buffer_to_str(self.body(), self.body().len()) {
-        Some(body) => {
-          result = format!("{}{}", result, body);
-        }
-        None => (),
-      }
-    }
     write!(f, "{}", result)
   }
 }

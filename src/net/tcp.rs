@@ -1,7 +1,7 @@
 use super::util::into_io_error;
 use nix::sys::socket::{
-  accept, bind, getpeername, listen, socket, AddressFamily, InetAddr, IpAddr, SockAddr, SockFlag,
-  SockProtocol, SockType,
+  accept, bind, getpeername, getsockname, listen, socket, AddressFamily, InetAddr, IpAddr,
+  SockAddr, SockFlag, SockProtocol, SockType,
 };
 use nix::unistd::{close, read, write};
 use std::io::{Error, ErrorKind, Read, Result as IoResult, Write};
@@ -11,6 +11,7 @@ pub trait SocketLike {
   fn new() -> IoResult<Box<Self>>;
   fn accept(&self) -> IoResult<Box<Self>>;
   fn get_peer_name(&self) -> IoResult<SocketAddr>;
+  fn get_sock_name(&self) -> IoResult<SocketAddr>;
   fn bind(&mut self, addr: SocketAddr) -> IoResult<()>;
   fn listen(&self, backlog: usize) -> IoResult<()>;
   fn close(&self) -> IoResult<()>;
@@ -44,6 +45,14 @@ impl SocketLike for Socket {
 
   fn get_peer_name(&self) -> IoResult<SocketAddr> {
     let addr = getpeername(self.0).map_err(into_io_error)?;
+    match addr {
+      SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
+      _ => Err(Error::from(ErrorKind::Other)),
+    }
+  }
+
+  fn get_sock_name(&self) -> IoResult<SocketAddr> {
+    let addr = getsockname(self.0).map_err(into_io_error)?;
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
       _ => Err(Error::from(ErrorKind::Other)),
@@ -150,6 +159,10 @@ impl<T: SocketLike> TcpListener<T> {
   pub fn incoming(&self) -> Incoming<T> {
     Incoming { listener: self }
   }
+
+  pub fn local_addr(&self) -> IoResult<SocketAddr> {
+    self.inner.get_sock_name()
+  }
 }
 
 // ----- End TcpListener ------
@@ -195,6 +208,10 @@ mod tests {
     }
 
     fn get_peer_name(&self) -> IoResult<SocketAddr> {
+      Ok(self.address)
+    }
+
+    fn get_sock_name(&self) -> IoResult<SocketAddr> {
       Ok(self.address)
     }
 

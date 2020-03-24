@@ -170,28 +170,24 @@ mod tests {
   #[test]
   fn parse_method() {
     let parsed = Method::parse(SAMPLE_REQUEST);
-    // println!("parse_method: {:?}", parsed);
     assert!(parsed.is_ok() && parsed.unwrap().0 == SAMPLE_REQUEST_URL);
   }
 
   #[test]
   fn parse_url() {
     let parsed = Url::parse(SAMPLE_REQUEST_URL);
-    // println!("parse_url: {:?}", parsed);
     assert!(parsed.is_ok() && parsed.unwrap().0 == SAMPLE_REQUEST_VERSION);
   }
 
   #[test]
   fn parse_version() {
     let parsed = Version::parse(SAMPLE_REQUEST_VERSION);
-    // println!("parse_version: {:?}", parsed);
     assert!(parsed.is_ok());
   }
 
   #[test]
   fn parse_headers() {
     let parsed = Headers::parse(SAMPLE_REQUEST_HEADERS);
-    // println!("parse_headers: {:?}", parsed);
     assert!(parsed.is_ok() && parsed.unwrap().0 == "");
   }
 }

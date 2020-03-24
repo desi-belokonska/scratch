@@ -4,6 +4,7 @@ use crate::net::util;
 use std::io::Result as IoResult;
 use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Write};
 use std::net::ToSocketAddrs;
+use std::time::SystemTime;
 
 // const DEFAULT_MAX_HEADER_BYTES: u32 = 1 << 20;
 
@@ -22,9 +23,13 @@ impl Server {
   where
     F: Fn(Request) -> IoResult<Response>,
   {
-    println!("Server listening");
+    match self.inner.local_addr() {
+      Ok(addr) => info!("Server listening on {}", addr),
+      Err(err) => error!("Error getting local address: {}", err),
+    }
 
     for stream in self.inner.incoming() {
+      let now = SystemTime::now();
       let stream = stream?;
 
       let mut reader = BufReader::new(&stream);
@@ -37,9 +42,26 @@ impl Server {
       let request =
         Request::parse(raw_request).map_err(|_| Error::from(ErrorKind::InvalidInput))?;
 
+      info!("{}", raw_request);
+
       let response = handle_fn(request)?;
-      println!("👩‍🏭");
+
       writer.write_all(&response.as_bytes())?;
+
+      match now.elapsed() {
+        Ok(elapsed) => {
+          // it prints '2'
+          info!(
+            "took: {} microsecs ({} secs)",
+            elapsed.as_micros(),
+            elapsed.as_secs()
+          );
+        }
+        Err(e) => {
+          // an error occurred!
+          error!("Error: {:?}", e);
+        }
+      }
     }
     Ok(())
   }

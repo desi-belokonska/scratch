@@ -1,4 +1,5 @@
 use mime_guess::from_path;
+use pretty_env_logger;
 use scratch::net::http::{Request, Response, Server, Status};
 use std::fs;
 use std::io::Result;
@@ -6,7 +7,8 @@ use std::io::Result;
 const PUBLIC: &str = "public";
 
 fn main() -> Result<()> {
-  Server::bind("127.0.0.1:8000").serve(handle_request)
+  pretty_env_logger::init();
+  Server::bind("127.0.0.1:8001").serve(handle_request)
 }
 
 fn handle_request<'a>(request: Request) -> Result<Response> {
@@ -15,7 +17,6 @@ fn handle_request<'a>(request: Request) -> Result<Response> {
   match fs::read(&file_path) {
     Ok(content) => {
       let mime_type_guess = from_path(&file_path).first_raw().unwrap_or("text/plain");
-      println!("mime_type_guess: {}", mime_type_guess);
       Ok(
         Response::builder()
           .body(content)
