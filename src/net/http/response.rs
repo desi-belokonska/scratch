@@ -3,16 +3,16 @@ use crate::net::util::buffer_to_str;
 use std::fmt;
 
 #[derive(Default, Debug)]
-pub struct Response<'a> {
+pub struct Response {
   status: Status,
   version: Version,
   url: Url,
   headers: Headers,
-  body: &'a [u8],
+  body: Vec<u8>,
 }
 
-impl<'a> Response<'a> {
-  pub fn builder() -> ResponseBuilder<'a> {
+impl Response {
+  pub fn builder() -> ResponseBuilder {
     ResponseBuilder(Default::default())
   }
 
@@ -37,13 +37,13 @@ impl<'a> Response<'a> {
   }
 }
 
-impl<'a> From<ResponseBuilder<'a>> for Response<'a> {
-  fn from(builder: ResponseBuilder<'a>) -> Self {
+impl From<ResponseBuilder> for Response {
+  fn from(builder: ResponseBuilder) -> Self {
     builder.0
   }
 }
 
-impl<'a> fmt::Display for Response<'a> {
+impl fmt::Display for Response {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let mut result = format!("{} {}\n", self.version(), self.status());
     for (header, field) in self.headers().map.iter() {
@@ -61,9 +61,9 @@ impl<'a> fmt::Display for Response<'a> {
   }
 }
 
-pub struct ResponseBuilder<'a>(Response<'a>);
+pub struct ResponseBuilder(Response);
 
-impl<'a> ResponseBuilder<'a> {
+impl ResponseBuilder {
   pub fn status(mut self, status: Status) -> Self {
     self.0.status = status;
     self
@@ -89,7 +89,7 @@ impl<'a> ResponseBuilder<'a> {
     self
   }
 
-  pub fn body(mut self, body: &'a [u8]) -> Self {
+  pub fn body(mut self, body: Vec<u8>) -> Self {
     self.0.body = body;
     self
   }
