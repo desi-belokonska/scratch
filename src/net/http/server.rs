@@ -1,6 +1,5 @@
 use crate::net::http::{Request, Response};
 use crate::net::tcp::*;
-use crate::net::util;
 use std::io::Result as IoResult;
 use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Write};
 use std::net::ToSocketAddrs;
@@ -36,11 +35,11 @@ impl Server {
       let mut writer = BufWriter::new(&stream);
 
       let buffer = &mut [0; 30000];
-      let bytes_read = reader.read(buffer)?;
-      let raw_request = util::buffer_to_str(buffer, bytes_read).expect("Invalid request");
+      reader.read(buffer)?;
+      let raw_request = String::from_utf8_lossy(&buffer[..]);
 
       let request =
-        Request::parse(raw_request).map_err(|_| Error::from(ErrorKind::InvalidInput))?;
+        Request::parse(&raw_request).map_err(|_| Error::from(ErrorKind::InvalidInput))?;
 
       info!("{}", raw_request);
 
