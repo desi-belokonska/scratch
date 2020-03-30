@@ -1,9 +1,10 @@
+use std::io::Result as IoResult;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
-type Job = Box<dyn FnOnce() + Send + 'static>;
+type Job = Box<dyn FnOnce() -> IoResult<()> + Send + 'static>;
 
 enum Message {
   NewJob(Job),
@@ -35,13 +36,13 @@ impl ThreadPool {
     for id in 0..size {
       workers.push(Worker::new(id, Arc::clone(&receiver)));
     }
-
+    info!("Creating thread pool with {} threads", size);
     ThreadPool { workers, sender }
   }
 
   pub fn execute<F>(&self, f: F)
   where
-    F: FnOnce() + Send + 'static,
+    F: FnOnce() -> IoResult<()> + Send + 'static,
   {
     let job = Box::new(f);
 
