@@ -2,7 +2,7 @@ use crate::net::http::{Request, Response};
 use crate::net::{TcpListener, TcpStream};
 use crate::thread::*;
 use num_cpus;
-use std::io::Result as IoResult;
+use std::io;
 use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Write};
 use std::net::ToSocketAddrs;
 use std::time::SystemTime;
@@ -20,9 +20,9 @@ impl Server {
     Server { inner: listener }
   }
 
-  pub fn serve<'a, F>(&self, handle_fn: F) -> IoResult<()>
+  pub fn serve<'a, F>(&self, handle_fn: F) -> io::Result<()>
   where
-    F: FnOnce(Request) -> IoResult<Response> + Send + 'static + Copy,
+    F: FnOnce(Request) -> io::Result<Response> + Send + 'static + Copy,
   {
     match self.inner.local_addr() {
       Ok(addr) => println!("Server listening on http://{}", addr),
@@ -36,8 +36,8 @@ impl Server {
     for stream in self.inner.incoming() {
       let stream = stream?;
 
-      pool.execute(move || -> IoResult<()> {
-        time_request(|| -> IoResult<()> {
+      pool.execute(move || -> io::Result<()> {
+        time_request(|| -> io::Result<()> {
           let request = read_from_client(&stream)?;
           let response = handle_fn(request)?;
           respond_to_client(&stream, response)?;
@@ -50,7 +50,7 @@ impl Server {
   }
 }
 
-fn read_from_client(stream: &TcpStream) -> IoResult<Request> {
+fn read_from_client(stream: &TcpStream) -> io::Result<Request> {
   let mut reader = BufReader::new(stream);
   let buffer = &mut [0; 30000];
 
@@ -65,12 +65,12 @@ fn read_from_client(stream: &TcpStream) -> IoResult<Request> {
   return request;
 }
 
-fn respond_to_client(stream: &TcpStream, response: Response) -> IoResult<()> {
+fn respond_to_client(stream: &TcpStream, response: Response) -> io::Result<()> {
   let mut writer = BufWriter::new(stream);
   writer.write_all(&response.as_bytes())
 }
 
-fn time_request(func: impl Fn() -> IoResult<()>) -> IoResult<()> {
+fn time_request(func: impl Fn() -> io::Result<()>) -> io::Result<()> {
   let now = SystemTime::now();
   func()?;
   match now.elapsed() {
@@ -82,7 +82,6 @@ fn time_request(func: impl Fn() -> IoResult<()>) -> IoResult<()> {
       );
     }
     Err(e) => {
-      // an error occurred!
       error!("Error gettting time: {:?}", e);
     }
   };

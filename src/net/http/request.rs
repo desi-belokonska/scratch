@@ -1,5 +1,6 @@
 use super::common::*;
-use std::io::{Error, ErrorKind, Result as IoResult};
+use std::io;
+use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
 #[derive(Default, Debug)]
@@ -102,7 +103,7 @@ pub enum Method {
 impl FromStr for Method {
   type Err = Error;
 
-  fn from_str(string: &str) -> IoResult<Self> {
+  fn from_str(string: &str) -> io::Result<Self> {
     if string == "OPTIONS" {
       Ok(Method::OPTIONS)
     } else if string == "GET" {

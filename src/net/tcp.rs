@@ -4,19 +4,20 @@ use nix::sys::socket::{
   SockAddr, SockFlag, SockProtocol, SockType,
 };
 use nix::unistd::{close, read, write};
-use std::io::{Error, ErrorKind, Read, Result as IoResult, Write};
+use std::io;
+use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
 
 pub trait SocketLike {
-  fn new() -> IoResult<Box<Self>>;
-  fn accept(&self) -> IoResult<Box<Self>>;
-  fn get_peer_name(&self) -> IoResult<SocketAddr>;
-  fn get_sock_name(&self) -> IoResult<SocketAddr>;
-  fn bind(&mut self, addr: SocketAddr) -> IoResult<()>;
-  fn listen(&self, backlog: usize) -> IoResult<()>;
-  fn close(&self) -> IoResult<()>;
-  fn read(&self, buf: &mut [u8]) -> IoResult<usize>;
-  fn write(&self, buf: &[u8]) -> IoResult<usize>;
+  fn new() -> io::Result<Box<Self>>;
+  fn accept(&self) -> io::Result<Box<Self>>;
+  fn get_peer_name(&self) -> io::Result<SocketAddr>;
+  fn get_sock_name(&self) -> io::Result<SocketAddr>;
+  fn bind(&mut self, addr: SocketAddr) -> io::Result<()>;
+  fn listen(&self, backlog: usize) -> io::Result<()>;
+  fn close(&self) -> io::Result<()>;
+  fn read(&self, buf: &mut [u8]) -> io::Result<usize>;
+  fn write(&self, buf: &[u8]) -> io::Result<usize>;
 }
 
 // ----- Begin: Socket ------
@@ -24,7 +25,7 @@ pub trait SocketLike {
 pub struct Socket(i32);
 
 impl SocketLike for Socket {
-  fn new() -> IoResult<Box<Socket>> {
+  fn new() -> io::Result<Box<Socket>> {
     match socket(
       AddressFamily::Inet,
       SockType::Stream,
@@ -36,14 +37,14 @@ impl SocketLike for Socket {
     }
   }
 
-  fn accept(&self) -> IoResult<Box<Socket>> {
+  fn accept(&self) -> io::Result<Box<Socket>> {
     match accept(self.0) {
       Ok(raw_fd) => Ok(Box::new(Socket(raw_fd))),
       Err(err) => Err(into_io_error(err)),
     }
   }
 
-  fn get_peer_name(&self) -> IoResult<SocketAddr> {
+  fn get_peer_name(&self) -> io::Result<SocketAddr> {
     let addr = getpeername(self.0).map_err(into_io_error)?;
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
@@ -51,7 +52,7 @@ impl SocketLike for Socket {
     }
   }
 
-  fn get_sock_name(&self) -> IoResult<SocketAddr> {
+  fn get_sock_name(&self) -> io::Result<SocketAddr> {
     let addr = getsockname(self.0).map_err(into_io_error)?;
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
@@ -59,24 +60,24 @@ impl SocketLike for Socket {
     }
   }
 
-  fn bind(&mut self, addr: SocketAddr) -> IoResult<()> {
+  fn bind(&mut self, addr: SocketAddr) -> io::Result<()> {
     let address = SockAddr::new_inet(InetAddr::new(IpAddr::from_std(&addr.ip()), addr.port()));
     bind(self.0, &address).map_err(into_io_error)
   }
 
-  fn listen(&self, backlog: usize) -> IoResult<()> {
+  fn listen(&self, backlog: usize) -> io::Result<()> {
     listen(self.0, backlog).map_err(into_io_error)
   }
 
-  fn close(&self) -> IoResult<()> {
+  fn close(&self) -> io::Result<()> {
     close(self.0).map_err(into_io_error)
   }
 
-  fn read(&self, buf: &mut [u8]) -> IoResult<usize> {
+  fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
     read(self.0, buf).map_err(into_io_error)
   }
 
-  fn write(&self, buf: &[u8]) -> IoResult<usize> {
+  fn write(&self, buf: &[u8]) -> io::Result<usize> {
     write(self.0, buf).map_err(into_io_error)
   }
 }
@@ -96,33 +97,33 @@ pub struct TcpStream<T: SocketLike> {
 }
 
 impl<T: SocketLike> Read for TcpStream<T> {
-  fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+  fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
     self.inner.read(buf)
   }
 }
 
 impl<T: SocketLike> Read for &TcpStream<T> {
-  fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+  fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
     self.inner.read(buf)
   }
 }
 
 impl<T: SocketLike> Write for TcpStream<T> {
-  fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
     self.inner.write(buf)
   }
 
-  fn flush(&mut self) -> IoResult<()> {
+  fn flush(&mut self) -> io::Result<()> {
     Ok(())
   }
 }
 
 impl<T: SocketLike> Write for &TcpStream<T> {
-  fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
     self.inner.write(buf)
   }
 
-  fn flush(&mut self) -> IoResult<()> {
+  fn flush(&mut self) -> io::Result<()> {
     Ok(())
   }
 }
@@ -136,7 +137,7 @@ pub struct TcpListener<T: SocketLike> {
 }
 
 impl<T: SocketLike> TcpListener<T> {
-  pub fn bind(ip: impl ToSocketAddrs) -> IoResult<TcpListener<T>> {
+  pub fn bind(ip: impl ToSocketAddrs) -> io::Result<TcpListener<T>> {
     let ip_addresses = ip.to_socket_addrs()?;
 
     for addr in ip_addresses {
@@ -150,7 +151,7 @@ impl<T: SocketLike> TcpListener<T> {
     Err(Error::from(ErrorKind::Other))
   }
 
-  pub fn accept(&self) -> IoResult<(TcpStream<T>, SocketAddr)> {
+  pub fn accept(&self) -> io::Result<(TcpStream<T>, SocketAddr)> {
     let new_socket = *self.inner.accept()?;
     let socket_addr = new_socket.get_peer_name()?;
     Ok((TcpStream { inner: new_socket }, socket_addr))
@@ -160,7 +161,7 @@ impl<T: SocketLike> TcpListener<T> {
     Incoming { listener: self }
   }
 
-  pub fn local_addr(&self) -> IoResult<SocketAddr> {
+  pub fn local_addr(&self) -> io::Result<SocketAddr> {
     self.inner.get_sock_name()
   }
 }
@@ -172,9 +173,9 @@ pub struct Incoming<'a, T: SocketLike> {
 }
 
 impl<'a, T: SocketLike> Iterator for Incoming<'a, T> {
-  type Item = IoResult<TcpStream<T>>;
+  type Item = io::Result<TcpStream<T>>;
 
-  fn next(&mut self) -> Option<IoResult<TcpStream<T>>> {
+  fn next(&mut self) -> Option<io::Result<TcpStream<T>>> {
     Some(self.listener.accept().map(|p| p.0))
   }
 }
@@ -194,41 +195,41 @@ mod tests {
   const NEW_ACCPT_ADDR: &str = "127.0.0.1:4000";
 
   impl SocketLike for GoodSocket {
-    fn new() -> IoResult<Box<GoodSocket>> {
+    fn new() -> io::Result<Box<GoodSocket>> {
       // Okay because we know it's a valid socket address
       let address = NEW_SOCK_ADDR.to_socket_addrs().unwrap().next().unwrap();
       Ok(Box::new(GoodSocket { address }))
     }
 
-    fn accept(&self) -> IoResult<Box<GoodSocket>> {
+    fn accept(&self) -> io::Result<Box<GoodSocket>> {
       let new_address = NEW_ACCPT_ADDR.to_socket_addrs().unwrap().next().unwrap();
       Ok(Box::new(GoodSocket {
         address: new_address,
       }))
     }
 
-    fn get_peer_name(&self) -> IoResult<SocketAddr> {
+    fn get_peer_name(&self) -> io::Result<SocketAddr> {
       Ok(self.address)
     }
 
-    fn get_sock_name(&self) -> IoResult<SocketAddr> {
+    fn get_sock_name(&self) -> io::Result<SocketAddr> {
       Ok(self.address)
     }
 
-    fn bind(&mut self, addr: SocketAddr) -> IoResult<()> {
+    fn bind(&mut self, addr: SocketAddr) -> io::Result<()> {
       self.address = addr;
       Ok(())
     }
 
-    fn listen(&self, _backlog: usize) -> IoResult<()> {
+    fn listen(&self, _backlog: usize) -> io::Result<()> {
       Ok(())
     }
 
-    fn close(&self) -> IoResult<()> {
+    fn close(&self) -> io::Result<()> {
       Ok(())
     }
 
-    fn read(&self, buf: &mut [u8]) -> IoResult<usize> {
+    fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
       let mut count = 0;
       for val in buf {
         *val = 1;
@@ -237,7 +238,7 @@ mod tests {
       Ok(count)
     }
 
-    fn write(&self, buf: &[u8]) -> IoResult<usize> {
+    fn write(&self, buf: &[u8]) -> io::Result<usize> {
       let mut count = 0;
       for val in buf {
         unsafe { DATA.push(*val) };
