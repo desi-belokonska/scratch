@@ -88,7 +88,10 @@ impl Worker {
         Message::NewJob(job) => {
           trace!("Worker {} got a job; executing.", id);
 
-          job();
+          match job() {
+            Ok(_) => (),
+            Err(err) => error!("Worker {} got a job which errored: {}", id, err),
+          }
         }
         Message::Terminate => {
           trace!("Worker {} was told to terminate", id);

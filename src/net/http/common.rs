@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::hash::Hash;
 
 #[derive(Debug)]
 pub struct ParseError();
@@ -55,7 +56,7 @@ impl Parse for Headers {
   }
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Eq, Hash)]
 pub struct Url {
   path: String,
 }

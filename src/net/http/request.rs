@@ -88,7 +88,7 @@ impl RequestBuilder {
   }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Method {
   OPTIONS,
   GET,

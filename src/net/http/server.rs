@@ -1,10 +1,11 @@
-use crate::net::http::{Request, Response};
+use crate::net::http::{Handler, Request, Response};
 use crate::net::{TcpListener, TcpStream};
 use crate::thread::*;
 use num_cpus;
 use std::io;
 use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Write};
 use std::net::ToSocketAddrs;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 // const DEFAULT_MAX_HEADER_BYTES: u32 = 1 << 20;
@@ -20,10 +21,7 @@ impl Server {
     Server { inner: listener }
   }
 
-  pub fn serve<'a, F>(&self, handle_fn: F) -> io::Result<()>
-  where
-    F: FnOnce(Request) -> io::Result<Response> + Send + 'static + Copy,
-  {
+  pub fn serve<'a>(&self, handler: impl Handler) -> io::Result<()> {
     match self.inner.local_addr() {
       Ok(addr) => println!("Server listening on http://{}", addr),
       Err(err) => error!("Error getting local address: {}", err),
@@ -33,13 +31,16 @@ impl Server {
     let logical_cpus = num_cpus::get();
     let pool = ThreadPool::new(logical_cpus);
 
+    let handler = Arc::new(handler);
+
     for stream in self.inner.incoming() {
       let stream = stream?;
+      let handler = handler.clone();
 
       pool.execute(move || -> io::Result<()> {
         time_request(|| -> io::Result<()> {
           let request = read_from_client(&stream)?;
-          let response = handle_fn(request)?;
+          let response = handler.handle(request)?;
           respond_to_client(&stream, response)?;
 
           Ok(())
