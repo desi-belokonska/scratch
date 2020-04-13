@@ -59,28 +59,30 @@ impl Router {
     }
   }
 
-  pub fn route(&mut self, method: Method, url: Url, handler: impl Handler) {
+  pub fn route(&mut self, method: Method, path: &str, handler: impl Handler) {
     self
       .router_map
-      .entry(url)
+      .entry(Url::with_path(path))
       .or_insert_with(HashMap::new)
       .insert(method, Box::new(handler));
   }
 
-  pub fn get(&mut self, url: Url, handler: impl Handler) {
-    self.route(Method::GET, url, handler)
+  //helpful wrappers for common methods
+
+  pub fn get(&mut self, path: &str, handler: impl Handler) {
+    self.route(Method::GET, path, handler)
   }
 
-  pub fn post(&mut self, url: Url, handler: impl Handler) {
-    self.route(Method::POST, url, handler)
+  pub fn post(&mut self, path: &str, handler: impl Handler) {
+    self.route(Method::POST, path, handler)
   }
 
-  pub fn put(&mut self, url: Url, handler: impl Handler) {
-    self.route(Method::PUT, url, handler)
+  pub fn put(&mut self, path: &str, handler: impl Handler) {
+    self.route(Method::PUT, path, handler)
   }
 
-  pub fn delete(&mut self, url: Url, handler: impl Handler) {
-    self.route(Method::DELETE, url, handler)
+  pub fn delete(&mut self, path: &str, handler: impl Handler) {
+    self.route(Method::DELETE, path, handler)
   }
 }
 

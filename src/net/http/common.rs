@@ -62,6 +62,12 @@ pub struct Url {
 }
 
 impl Url {
+  pub fn with_path(path: &str) -> Url {
+    Url {
+      path: path.to_string(),
+    }
+  }
+
   pub fn path(&self) -> &str {
     &self.path
   }
