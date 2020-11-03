@@ -1,7 +1,8 @@
 use super::util::into_io_error;
+use nix::sys::socket::sockopt::ReuseAddr;
 use nix::sys::socket::{
-  accept, bind, getpeername, getsockname, listen, socket, AddressFamily, InetAddr, IpAddr,
-  SockAddr, SockFlag, SockProtocol, SockType,
+  accept, bind, getpeername, getsockname, listen, setsockopt, socket, AddressFamily, InetAddr,
+  IpAddr, SockAddr, SockFlag, SockProtocol, SockType,
 };
 use nix::unistd::{close, read, write};
 use std::io;
@@ -26,15 +27,17 @@ pub struct Socket(i32);
 
 impl SocketLike for Socket {
   fn new() -> io::Result<Box<Socket>> {
-    match socket(
+    let raw_fd = socket(
       AddressFamily::Inet,
       SockType::Stream,
       SockFlag::empty(),
       SockProtocol::Tcp,
-    ) {
-      Ok(raw_fd) => Ok(Box::new(Socket(raw_fd))),
-      Err(err) => Err(into_io_error(err)),
-    }
+    )
+    .map_err(|err| into_io_error(err))?;
+
+    setsockopt(raw_fd, ReuseAddr, &true).map_err(|err| into_io_error(err))?;
+
+    Ok(Box::new(Socket(raw_fd)))
   }
 
   fn accept(&self) -> io::Result<Box<Socket>> {
