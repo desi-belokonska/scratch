@@ -28,7 +28,7 @@ impl Handler for HandlerFunc {
 
 impl<F> Handler for F
 where
-  F: Send + Sync + 'static + Fn(Request) -> io::Result<Response>,
+  F: Fn(Request) -> io::Result<Response> + Send + Sync + 'static,
 {
   fn handle(&self, req: Request) -> io::Result<Response> {
     (*self)(req)
