@@ -51,11 +51,11 @@ impl From<ResponseBuilder> for Response {
 
 impl fmt::Display for Response {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let mut result = format!("{} {}\n", self.version(), self.status());
+    let mut result = format!("{} {}\r\n", self.version(), self.status());
     for (header, field) in self.headers().map.iter() {
-      result = format!("{}{}: {}\n", result, header, field);
+      result = format!("{}{}: {}\r\n", result, header, field);
     }
-    result = format!("{}\n", result);
+    result = format!("{}\r\n", result);
     write!(f, "{}", result)
   }
 }
