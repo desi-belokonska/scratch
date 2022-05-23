@@ -23,7 +23,9 @@ pub trait SocketLike {
 
 // ----- Begin: Socket ------
 
-pub struct Socket(i32);
+pub struct Socket {
+  fd: i32,
+}
 
 impl SocketLike for Socket {
   fn new() -> io::Result<Box<Socket>> {
@@ -37,18 +39,18 @@ impl SocketLike for Socket {
 
     setsockopt(raw_fd, ReuseAddr, &true).map_err(|err| into_io_error(err))?;
 
-    Ok(Box::new(Socket(raw_fd)))
+    Ok(Box::new(Socket { fd: raw_fd }))
   }
 
   fn accept(&self) -> io::Result<Box<Socket>> {
-    match accept(self.0) {
-      Ok(raw_fd) => Ok(Box::new(Socket(raw_fd))),
+    match accept(self.fd) {
+      Ok(raw_fd) => Ok(Box::new(Socket { fd: raw_fd })),
       Err(err) => Err(into_io_error(err)),
     }
   }
 
   fn get_peer_name(&self) -> io::Result<SocketAddr> {
-    let addr = getpeername(self.0).map_err(into_io_error)?;
+    let addr = getpeername(self.fd).map_err(into_io_error)?;
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
       _ => Err(Error::from(ErrorKind::Other)),
@@ -56,7 +58,7 @@ impl SocketLike for Socket {
   }
 
   fn get_sock_name(&self) -> io::Result<SocketAddr> {
-    let addr = getsockname(self.0).map_err(into_io_error)?;
+    let addr = getsockname(self.fd).map_err(into_io_error)?;
     match addr {
       SockAddr::Inet(iaddr) => Ok(iaddr.to_std()),
       _ => Err(Error::from(ErrorKind::Other)),
@@ -65,23 +67,23 @@ impl SocketLike for Socket {
 
   fn bind(&mut self, addr: SocketAddr) -> io::Result<()> {
     let address = SockAddr::new_inet(InetAddr::new(IpAddr::from_std(&addr.ip()), addr.port()));
-    bind(self.0, &address).map_err(into_io_error)
+    bind(self.fd, &address).map_err(into_io_error)
   }
 
   fn listen(&self, backlog: usize) -> io::Result<()> {
-    listen(self.0, backlog).map_err(into_io_error)
+    listen(self.fd, backlog).map_err(into_io_error)
   }
 
   fn close(&self) -> io::Result<()> {
-    close(self.0).map_err(into_io_error)
+    close(self.fd).map_err(into_io_error)
   }
 
   fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
-    read(self.0, buf).map_err(into_io_error)
+    read(self.fd, buf).map_err(into_io_error)
   }
 
   fn write(&self, buf: &[u8]) -> io::Result<usize> {
-    write(self.0, buf).map_err(into_io_error)
+    write(self.fd, buf).map_err(into_io_error)
   }
 }
 
